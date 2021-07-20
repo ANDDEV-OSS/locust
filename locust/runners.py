@@ -490,17 +490,21 @@ class LocalRunner(Runner):
             return
         super().stop()
 
-    def send_message(self, msg_type, data=None):
+    def send_message(self, msg_type, data=None, client_id="local"):
         """
         Emulates internodal messaging by calling registered listeners
 
         :param msg_type: The type of the message to emulate sending
         :param data: Optional data to include
         """
-        logger.debug(f"Running locally: sending {msg_type} message to self")
+        if client_id == "local":
+            logger.debug(f"Running locally: sending {msg_type} message to self")
+        else:
+            logger.debug(f"Running locally: sending {msg_type} message to self with client id {client_id}")
+
         if msg_type in self.custom_messages:
             listener = self.custom_messages[msg_type]
-            msg = Message(msg_type, data, "local")
+            msg = Message(msg_type, data, client_id)
             listener(environment=self.environment, msg=msg)
         else:
             logger.warning(f"Unknown message type recieved: {msg_type}")
