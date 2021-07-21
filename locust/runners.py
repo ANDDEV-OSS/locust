@@ -466,6 +466,7 @@ class LocalRunner(Runner):
         self.worker_count = 1
         self.client_id = "local"
         self.clients = [self._local_worker_node]
+        self.greenlet.spawn(self.stats_reporter).link_exception(greenlet_exception_handler)
 
         # register listener thats logs the exception for the local runner
         def on_user_error(user_instance, exception, tb):
@@ -512,6 +513,21 @@ class LocalRunner(Runner):
             listener(environment=self.environment, msg=msg)
         else:
             logger.warning(f"Unknown message type recieved: {msg_type}")
+
+    def stats_reporter(self):
+        while True:
+            try:
+                self._send_stats()
+            except RPCError as e:
+                logger.error("Temporary connection lost to master server: %s, will retry later." % (e))
+            gevent.sleep(WORKER_REPORT_INTERVAL)
+
+    def _send_stats(self):
+        data = {}
+        data["user_count"] = self.user_count
+        self.environment.events.report_to_master.fire(client_id=self.client_id, data=data)
+        logging.getLogger("locust.runners").debug(f"Running locally: sending worker_report to self")
+        self.environment.events.worker_report.fire(client_id=self.client_id, data=data)
 
 
 class DistributedRunner(Runner):
